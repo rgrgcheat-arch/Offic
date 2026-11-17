@@ -632,11 +632,11 @@ T["api.html"] = r"""{% extends 'rbase.html' %}{% block c %}<style>""" + API_CSS 
 <p class=mu>Wrong / missing token &rarr; HTTP 401 and <code>"connected": false</code>.</p></div>
 
 <div class=card><h3><span class=mth>GET</span>1. Connect</h3><p>Use this when the reseller presses <b>Connect</b> in the bot.</p>
-""" + _cb('GET {{base}}/api/v1/connect') + _cb('{"success": true, "connected": true, "message": "Connect successful",\n "username": "RPSHIVA", "balance": 250.0, "currency": "INR", "server": "{{base}}"}') + r"""
+""" + _cb('GET {{base}}/api/v1/connect') + _cb('{"success": true, "connected": true, "message": "Connect successful",\n "username": "{{BRAND}}", "balance": 250.0, "currency": "INR", "server": "{{base}}"}') + r"""
 <p class=mu>If the token is wrong: <code>{"success": false, "connected": false, "error": "INVALID_API_KEY", "message": "Not connected: ..."}</code></p></div>
 
 <div class=card><h3><span class=mth>GET</span>2. Check Balance</h3>
-""" + _cb('GET {{base}}/api/v1/balance\n\n{"success": true, "username": "RPSHIVA", "balance": 250.0, "currency": "INR"}') + r"""</div>
+""" + _cb('GET {{base}}/api/v1/balance\n\n{"success": true, "username": "{{BRAND}}", "balance": 250.0, "currency": "INR"}') + r"""</div>
 
 <div class=card><h3><span class=mth>GET</span>3. Products, Plans &amp; Prices</h3>
 <p>Prices are <b>your</b> prices (custom price if admin set one). All amounts are INR.</p>

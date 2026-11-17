@@ -852,7 +852,7 @@ def catalog(rid):
             sc = q("SELECT COUNT(*) FROM stock WHERE plan_id=? AND used=0", (pl["id"],), one=True)[0]
             plans.append(dict(id=pl["id"], name=pl["name"], days=pl["days"], hours=pl["hours"] or 0, price=price, custom=custom,
                               mode=pl["mode"] or "random", stock=sc,
-                              provider=("VIP Seller Hub" if src == "vsh" else ("Tahir API" if src == "tahir" else ""))))
+                              provider=""))  # provider name is hidden from customers
         icon = ("/picon/%d?v=%d" % (p["id"], p["icon_ver"] or 0)) if p["icon"] else ("/emoji/" + p["emoji_id"] if p["emoji_id"] else "")
         out.append(dict(id=p["id"], name=p["name"], plans=plans, icon=icon))
     return out
@@ -2549,7 +2549,7 @@ def broadcast():
 
 
 @app.route("/api-docs", methods=["GET", "POST"])
-@reseller_only
+@reseller_required
 def api_docs():
     if request.method == "POST":
         q("UPDATE resellers SET api_key=? WHERE id=?", (new_api_key(), request.r["id"]), commit=True)
@@ -2600,7 +2600,7 @@ def api_token():
 def api_auth():
     k = api_token()
     r = q("SELECT * FROM resellers WHERE api_key=?", (k,), one=True) if k else None
-    if not r or not r["active"] or r["deleted"] or r["role"] == "user":          # API is for resellers only
+    if not r or not r["active"] or r["deleted"]:          # API works for resellers and users
         return None
     return r
 
@@ -3234,7 +3234,7 @@ def admin_telegram():
             flash("Emoji choices reset to automatic", "ok")
         elif a == "test_alert":
             ok, err = send_bounded(tg_admin(), purchase_text("SAMPLE PRODUCT", 1, 20, 824.44, "5456242 : 49892697",
-                                                             "panel", buyer="RPSHIVA"), what="sample alert")
+                                                             "panel", buyer=BRAND), what="sample alert")
             flash("Sample alert sent to your Telegram" if ok else "Could not send: %s" % err, "ok" if ok else "err")
         elif a == "test":
             ok, err = send_bounded(tg_admin(), "\u2705 <b>%s</b>\nTest message - the bot is connected." % esc(BRAND),
@@ -4555,6 +4555,47 @@ def admin_auto_price():
     except ValueError:
         log = []
     return render_template("admin_auto_price.html", cf=ap_conf(), st=st, log=log, page="autoprice")
+
+
+@app.route("/admin/bulk-price", methods=["GET", "POST"])
+@admin_required
+def admin_bulk_price():
+    """Raise (or lower) ALL reseller prices and/or ALL user prices by a percentage, in one click."""
+    if request.method == "POST":
+        pct = num(request.form.get("pct"), 0.0)
+        tgt = request.form.get("target", "")
+        if not (-90 <= pct <= 1000) or pct == 0:
+            flash("Enter a percentage between -90 and 1000 (not 0).", "err")
+            return redirect("/admin/bulk-price")
+        if tgt not in ("reseller", "user", "both"):
+            flash("Choose what to change.", "err")
+            return redirect("/admin/bulk-price")
+        f = 1 + pct / 100.0
+        n = 0
+        c = db()
+        try:
+            for pl in c.execute("SELECT * FROM plans").fetchall():
+                rp = float(pl["price"] or 0)
+                up = user_price_of(pl)
+                new_rp, new_up = rp, round(up, 2)      # a side that is not selected keeps its current price
+                if tgt in ("reseller", "both"):
+                    new_rp = round(rp * f, 2)
+                if tgt in ("user", "both"):
+                    new_up = round(up * f, 2)
+                c.execute("UPDATE plans SET price=?, user_price=? WHERE id=?", (new_rp, new_up, pl["id"]))
+                n += 1
+            if tgt in ("reseller", "both") and request.form.get("custom"):
+                for cp in c.execute("SELECT * FROM custom_prices").fetchall():
+                    c.execute("UPDATE custom_prices SET price=? WHERE reseller_id=? AND plan_id=?",
+                              (round(float(cp["price"] or 0) * f, 2), cp["reseller_id"], cp["plan_id"]))
+            c.commit()
+        finally:
+            c.close()
+        flash("Done: %d plan(s) changed by %+g%% (%s)." % (n, pct, {"reseller": "Reseller price", "user": "User price",
+                                                                     "both": "Reseller + User price"}[tgt]), "ok")
+        return redirect("/admin/bulk-price")
+    cnt = q("SELECT COUNT(*) FROM plans", one=True)[0]
+    return render_template("admin_bulk_price.html", cnt=cnt, page="bulkprice")
 
 
 # ---------------------------------------------------------------- keep-alive (Render never sleeps)
