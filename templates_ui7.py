@@ -210,4 +210,13 @@ T["admin_music.html"] = T["admin_music.html"].replace(_o, """<tr><td style="whit
 <form method=post style="display:inline"><input type=hidden name=action value=move><input type=hidden name=id value="{{m.id}}"><input type=hidden name=dir value=up><button class=o {{'disabled' if loop.first}} aria-label="Move up">&#9650;</button></form>
 <form method=post style="display:inline"><input type=hidden name=action value=move><input type=hidden name=id value="{{m.id}}"><input type=hidden name=dir value=down><button class=o {{'disabled' if loop.last}} aria-label="Move down">&#9660;</button></form></td><td>{{m.title}}</td>""", 1)
 
+# ---- v17.2: Music upload fix. The progress-bar markup was missing, so the upload script crashed and the form never sent.
+_o = "<button>Add Song</button></form>"
+assert _o in T["admin_music.html"]
+T["admin_music.html"] = T["admin_music.html"].replace(_o, _o + """<div id=mp style="display:none;margin-top:10px"><div style="height:10px;border-radius:8px;background:rgba(255,255,255,.1);overflow:hidden"><div id=mb style="height:100%;width:0;background:linear-gradient(90deg,var(--ac),var(--ac2))"></div></div><div class=mu id=mt style="margin-top:6px">Uploading 0%</div></div>""", 1)
+_o = "x.onload=function(){location.href='/admin/music'};"
+assert _o in T["admin_music.html"]
+T["admin_music.html"] = T["admin_music.html"].replace(_o,
+    "x.onload=function(){if(x.status>=200&&x.status<400){location.href='/admin/music'}else{tx.textContent='Upload failed (error '+x.status+'). The file may be too big for the server - try a smaller file or a direct URL.';mf.querySelectorAll('button').forEach(function(b){b.disabled=false})}};", 1)
+
 TEMPLATES = T

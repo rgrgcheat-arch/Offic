@@ -3443,14 +3443,17 @@ def admin_music():
                 if ext not in (".mp3", ".m4a", ".aac", ".wav", ".ogg", ".oga", ".opus", ".flac", ".webm", ".mp4"):
                     flash("Audio files only (mp3, m4a, wav, ogg, flac ...)", "err")
                     return redirect("/admin/music")
-                name = "%s_%s" % (secrets.token_hex(4), secure_filename(f.filename))
+                name = "%s_%s%s" % (secrets.token_hex(4), secure_filename(os.path.splitext(f.filename)[0])[:60], ext)
                 try:
                     f.save(os.path.join(MUSIC_DIR, name))
                 except OSError as e:
                     flash("Could not save the file: %s" % str(e)[:100], "err")
                     return redirect("/admin/music")
-                url = "/media/" + name
-                title = title or os.path.splitext(f.filename)[0]
+                # an uploaded file is added straight away (it must NOT go through the "download from URL" step below)
+                q("INSERT INTO music(title,url,pos) VALUES(?,?,(SELECT COALESCE(MAX(pos),0)+1 FROM music))",
+                  (title or os.path.splitext(f.filename)[0][:200], "/media/" + name), commit=True)
+                flash("Song uploaded and added to Music.", "ok")
+                return redirect("/admin/music")
             if url:
                 link_info = _music_link_info(url)
                 if link_info:
